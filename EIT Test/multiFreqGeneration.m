@@ -3,22 +3,23 @@ clearvars; close all; clc;
 
 %% Vars
 N = 1024 * 2; % Number of samples taken
+sampleRate = 125e3;
 
 %% Add Output
 d = daq("ni");
 addoutput(d,"Dev1","ao0","Voltage");
-d.Rate = 1e+06;
+d.Rate = 1e6;
 
 amplitudePeakToPeak_ch1 = 1; % pk voltage
 
 sineFrequency = 10e3; % 1e3 Hz
 sineFrequency2 = 30e3;
 sineFrequency3 = 50e3;
-duration = 0.75; % length of the signal in seconds
+duration = 0.5; % length of the signal in seconds
 
 outputSignal = [];
 outputSignal(:,1) = createSine(amplitudePeakToPeak_ch1/2, sineFrequency, sineFrequency2, sineFrequency3, d.Rate, "bipolar", duration);
-t = (0:(N-1)) / d.Rate;
+t = (0:(N-1)) / sampleRate;
 figure;
 plot(t, outputSignal(1:N))
 title('Generated Output')
@@ -29,7 +30,7 @@ start(d,"repeatoutput")
 
 %% Add Inputs
 dd = daq("ni");
-dd.Rate = 1e6;
+dd.Rate = 125e3; %2^17
 %{
 ch1 = addinput(dd,"Dev1","ai0","Voltage");
 ch1.TerminalConfig = "SingleEnded";
@@ -110,11 +111,14 @@ FFT_source = fft(source, N);
 f_HZ1 = ((0:N-1)*dd.Rate)/N;
 f_HZ2 = ((0:N-1)*d.Rate)/N;
 figure;
-hold on;
+subplot(2,1,1)
 stem(f_HZ1, abs(FFT_signal)/N)
+title('FFT of Measured Signal')
+subplot(2,1,2)
 stem(f_HZ2, abs(FFT_source)/N)
-hold off;
-title('FFT of signal')
+title('FFT of Generated Signal')
+
+
 
 %% Sampling
 % declare more varibles 
@@ -123,54 +127,64 @@ f_samp = dd.Rate;   % Hz
 tk = k/f_samp;      % xAxis
 
 freq50 = 50e3;      % desired frequency in Hz
-w0125 = 2*pi*freq50;     % omega???
+w01 = 2*pi*freq50;     % omega???
 
 freq30 = 30e3;
-w0100 = 2*pi*freq30;
+w02 = 2*pi*freq30;
 
 freq10 = 10e3;
-w075 = 2*pi*freq10;
+w03 = 2*pi*freq10;
 
 % matrix containing the desired frequency component of the system
-E125 = [sin(w0125*tk)', cos(w0125*tk)', ones(1, length(tk))']; 
-E100 = [sin(w0100*tk)', cos(w0100*tk)', ones(1, length(tk))'];
-E75 = [sin(w075*tk)', cos(w075*tk)', ones(1, length(tk))'];
-% Etot = [E125; E100; E75];
+E1 = [sin(w01*tk)', cos(w01*tk)', ones(1, length(tk))']; 
+E2 = [sin(w02*tk)', cos(w02*tk)', ones(1, length(tk))'];
+E3 = [sin(w03*tk)', cos(w03*tk)', ones(1, length(tk))'];
+Etot = [E1 E2 E3];
 
 % inverse of E * s^t (pinv)
-phi125 = E125\signal; % gives alpha, beta and offset
-phi100 = E100\signal;
-phi75 = E75\signal;
+% phi1 = E(1)\signal; % gives alpha, beta and offset
+% phi2 = E(2)\signal;
+% phi3 = E(3)\signal;
+phi_tot = pinv(Etot)*signal; %(:,1);
 
 % seperate phi characteristics
-alpha125 = phi125(1);
-beta125 = phi125(2);
-Cout125 = phi125(3);
+alpha1 = phi_tot(1);
+beta1 = phi_tot(2);
+Cout1 = phi_tot(3);
 
-alpha100 = phi100(1);
-beta100 = phi100(2);
-Cout100 = phi100(3);
+alpha2 = phi_tot(4);
+beta2 = phi_tot(5);
+Cout2 = phi_tot(6);
 
-alpha75 = phi75(1);
-beta75 = phi75(2);
-Cout75 = phi75(3);
+alpha3 = phi_tot(7);
+beta3 = phi_tot(8);
+Cout3 = phi_tot(9);
 
 % create the signal @wo
-f125signal = E125 * phi125;
-f100signal = E100 * phi100;
-f75signal = E75 * phi75;
+fsignal = Etot(:,1:3) * phi_tot(1:3,:) +  Etot(:,4:6) * phi_tot(4:6,:) + Etot(:,7:9) * phi_tot(7:9,:);
+% + Etot(:,4:6) * phi_tot(4:6,:) + Etot(:,7:9) * phi_tot(7:9,:)
 
+modF1 = Etot(:,1:3) * phi_tot(1:3,:);
+modF2 = Etot(:,4:6) * phi_tot(4:6,:);
+modF3 = Etot(:,7:9) * phi_tot(7:9,:);
 %% plot new signal
+
+figure
+plot(time,fsignal)
+title("Summed Multifrequncy Signal")
+xlabel("Time (s)");
+ylabel("Voltage (V)");
+
 figure
 subplot(2,1,1);
 hold on;
-plot(time, f125signal, 'color', 'b')
-title("Matrix Generated Signal")
+plot(time, modF1, 'color', 'b')
+title("E1 Modulated Signal")
 xlabel("Time (s)");
 ylabel("Voltage (V)");
 subplot(2,1,2);
 hold on;
-plot(time, f125signal,'.-','color', 'b')
+plot(time, modF1,'.-','color', 'b')
 xlim([.00001 .0001])
 xlabel("Time (s)");
 ylabel("Voltage (V)");
@@ -178,13 +192,13 @@ ylabel("Voltage (V)");
 figure
 subplot(2,1,1);
 hold on;
-plot(time, f100signal, 'color', 'b')
-title("Matrix Generated Signal")
+plot(time, modF2, 'color', 'b')
+title("E2 Modulated Signal")
 xlabel("Time (s)");
 ylabel("Voltage (V)");
 subplot(2,1,2);
 hold on;
-plot(time, f100signal,'.-','color', 'b')
+plot(time, modF2,'.-','color', 'b')
 xlim([.00001 .0001])
 xlabel("Time (s)");
 ylabel("Voltage (V)");
@@ -192,13 +206,13 @@ ylabel("Voltage (V)");
 figure
 subplot(2,1,1);
 hold on;
-plot(time, f75signal, 'color', 'b')
-title("Matrix Generated Signal")
+plot(time, modF3, 'color', 'b')
+title("E3 Modulated Signal")
 xlabel("Time (s)");
 ylabel("Voltage (V)");
 subplot(2,1,2);
 hold on;
-plot(time, f75signal,'.-','color', 'b')
+plot(time, modF3,'.-','color', 'b')
 xlim([.00001 .0001])
 xlabel("Time (s)");
 ylabel("Voltage (V)");
