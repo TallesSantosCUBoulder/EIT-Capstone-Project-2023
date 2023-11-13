@@ -2,7 +2,7 @@
 clearvars; close all; clc;
 
 %% Vars
-N = 1024 * 2; % Number of samples taken
+N = 1024; % Number of samples taken
 sampleRate = 125e3;
 
 %% Add Output
@@ -18,8 +18,8 @@ sineFrequency3 = 50e3;
 duration = 0.5; % length of the signal in seconds
 
 outputSignal = [];
-outputSignal(:,1) = createSine(amplitudePeakToPeak_ch1/2, sineFrequency, sineFrequency2, sineFrequency3, d.Rate, "bipolar", duration);
-t = (0:(N-1)) / sampleRate;
+outputSignal(:,1) = createSine(amplitudePeakToPeak_ch1/2, sineFrequency, sineFrequency2, sineFrequency3, d.Rate, "bipolar", 500e3, 20);
+t = (0:(N-1)) / d.Rate;
 figure;
 plot(t, outputSignal(1:N))
 title('Generated Output')
@@ -99,6 +99,7 @@ addclock(dd, "ScanClock", "Dev1/RTSI1","Dev2/RTSI1");
 %% Acquire Data with Synchronization
 % Use |read| to acquire data.  
 [signal,time] = read(dd, N, "OutputFormat", "Matrix");
+signal = signal(:,1); % Simplified signal to one channel
 figure();
 plot(time,signal)
 title('Measured Raw Data')
@@ -145,7 +146,7 @@ Etot = [E1 E2 E3];
 % phi1 = E(1)\signal; % gives alpha, beta and offset
 % phi2 = E(2)\signal;
 % phi3 = E(3)\signal;
-phi_tot = pinv(Etot)*signal; %(:,1);
+phi_tot = pinv(Etot)*signal;
 
 % seperate phi characteristics
 alpha1 = phi_tot(1);
@@ -167,7 +168,42 @@ fsignal = Etot(:,1:3) * phi_tot(1:3,:) +  Etot(:,4:6) * phi_tot(4:6,:) + Etot(:,
 modF1 = Etot(:,1:3) * phi_tot(1:3,:);
 modF2 = Etot(:,4:6) * phi_tot(4:6,:);
 modF3 = Etot(:,7:9) * phi_tot(7:9,:);
-%% plot new signal
+
+%% Error
+dif = signal - fsignal;
+err = ((dif)')*(dif);
+
+%% PLOTS
+
+figure
+subplot(2,1,1);
+plot(time, signal, 'color', 'b')
+title("Measured Signal")
+xlabel("Time (s)");
+ylabel("Voltage (V)");
+subplot(2,1,2);
+plot(time, signal,'.-','color', 'b')
+xlim([.00001 .0004])
+xlabel("Time (s)");
+ylabel("Voltage (V)");
+
+figure
+subplot(2,1,1);
+plot(time, fsignal, 'color', 'b')
+title("Summed Demodulated Signal")
+xlabel("Time (s)");
+ylabel("Voltage (V)");
+subplot(2,1,2);
+plot(time, fsignal,'.-','color', 'b')
+xlim([.00001 .0004])
+xlabel("Time (s)");
+ylabel("Voltage (V)");
+
+figure
+plot(time, dif)
+title("Measured - Summed Demodulated")
+xlabel("Time (s)");
+ylabel("Voltage (V)");
 
 figure
 plot(time,fsignal)
@@ -217,20 +253,23 @@ xlim([.00001 .0001])
 xlabel("Time (s)");
 ylabel("Voltage (V)");
 
+
 %% Create Sine Function
-function sine = createSine(A, f1, f2, f3, sampleRate, type, duration)
+function [sine, rawWave] = createSine(A, frq1, frq2, frq3, sampleRate, type, bufferForPreLoad, noise)
 
-numSamplesPerCycle = floor(sampleRate/f1);
-T = 1/f1;
-timestep = T/numSamplesPerCycle;
-t = (0 : timestep : T-timestep)';
+    timeStep = 1/sampleRate; % period of the sampling frequency
+    periods = 1/eval(gcd(sym([frq1 frq2 frq3]))); % calculates the length of the period for a periodic
+    t = (0:timeStep:periods)'; % calculates the time vector from the period
+    
+    if type == "bipolar"
+        y = A*sin(2*pi*frq1*t) + A*sin(2*pi*frq2*t) + A*sin(2*pi*frq3*t); % calculates the signal along the time vector
+    elseif type == "unipolar"
+        y = A*sin(2*pi*frq1*t) + A*sin(2*pi*frq2*t) + A*sin(2*pi*frq3*t) + A; % calculates the signal along the time vector
+    end
+    
+    numCycles = ceil(bufferForPreLoad/length(y)); % calculate the number of cycles to make a full buffer for preloading
+    rawWave = repmat(y, numCycles, 1); % extends the data vector to match or execed the buffer length
+    
+    sine = awgn(rawWave, noise, 'measured'); % adds white noise to the signal
 
-if type == "bipolar"
-    y = A*sin(2*pi*f1*t) + A*sin(2*pi*f2*t) + A*sin(2*pi*f3*t);
-elseif type == "unipolar"
-    y = A*sin(2*pi*f1*t) + A*sin(2*pi*f2*t) + A*sin(2*pi*f3*t) + A;
-end
-
-numCycles = round(f1*duration);
-sine = repmat(y,numCycles,1);
 end
