@@ -19,6 +19,7 @@ duration = 0.5; % length of the signal in seconds
 
 outputSignal = [];
 outputSignal(:,1) = createSine(amplitudePeakToPeak_ch1/2, sineFrequency, sineFrequency2, sineFrequency3, d.Rate, "bipolar", 500e3, 20);
+%outputSignal(:,1) = createSine(amplitudePeakToPeak_ch1/2, sineFrequency, sineFrequency2, sineFrequency3, d.Rate, "bipolar", duration, 0, 0);
 t = (0:(N-1)) / d.Rate;
 figure;
 plot(t, outputSignal(1:N))
@@ -99,10 +100,11 @@ addclock(dd, "ScanClock", "Dev1/RTSI1","Dev2/RTSI1");
 %% Acquire Data with Synchronization
 % Use |read| to acquire data.  
 [signal,time] = read(dd, N, "OutputFormat", "Matrix");
-signal = signal(:,1); % Simplified signal to one channel
+%signal = signal(:,1); % Simplified signal to one channel
 figure();
 plot(time,signal)
 title('Measured Raw Data')
+xlim([0 1.2e-3])
 
 stop(d)
 
@@ -253,13 +255,12 @@ xlim([.00001 .0001])
 xlabel("Time (s)");
 ylabel("Voltage (V)");
 
-
 %% Create Sine Function
 function [sine, rawWave] = createSine(A, frq1, frq2, frq3, sampleRate, type, bufferForPreLoad, noise)
 
     timeStep = 1/sampleRate; % period of the sampling frequency
     periods = 1/eval(gcd(sym([frq1 frq2 frq3]))); % calculates the length of the period for a periodic
-    t = (0:timeStep:periods)'; % calculates the time vector from the period
+    t = (0:timeStep:periods-timeStep)'; % calculates the time vector from the period
     
     if type == "bipolar"
         y = A*sin(2*pi*frq1*t) + A*sin(2*pi*frq2*t) + A*sin(2*pi*frq3*t); % calculates the signal along the time vector
