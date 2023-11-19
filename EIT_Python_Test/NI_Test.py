@@ -1,0 +1,2 @@
+import nidaqmx as DAQ
+
