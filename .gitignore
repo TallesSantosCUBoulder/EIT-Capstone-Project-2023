@@ -1,0 +1,13 @@
+EIT Test/multiFreqGeneration_DSP.m
+EIT Test/dspDemodulationGraphs/demodulatedE1.fig
+EIT Test/dspDemodulationGraphs/demodulatedE1.png
+EIT Test/dspDemodulationGraphs/demodulatedE2.png
+EIT Test/dspDemodulationGraphs/demodulatedE3.png
+EIT Test/dspDemodulationGraphs/difNoNoise.png
+EIT Test/dspDemodulationGraphs/difWithNoise.png
+EIT Test/dspDemodulationGraphs/dualFFT.png
+EIT Test/dspDemodulationGraphs/dualFFTnotDumb.png
+EIT Test/dspDemodulationGraphs/fftNoise.png
+EIT Test/dspDemodulationGraphs/threeFFT.png
+EIT Test/dspDemodulationGraphs/summedDemodulated.png
+EIT Test/dspDemodulationGraphs/measuredSigNoise.png
