@@ -11,3 +11,4 @@ EIT Test/dspDemodulationGraphs/fftNoise.png
 EIT Test/dspDemodulationGraphs/threeFFT.png
 EIT Test/dspDemodulationGraphs/summedDemodulated.png
 EIT Test/dspDemodulationGraphs/measuredSigNoise.png
+.vscode/settings.json
