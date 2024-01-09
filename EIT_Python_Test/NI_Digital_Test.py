@@ -1,7 +1,5 @@
 import nidaqmx
 import nidaqmx.constants as const
-import matplotlib.pyplot as plt
-import numpy as np
 import time
 while True:
     with nidaqmx.Task() as task:
@@ -10,4 +8,5 @@ while True:
         time.sleep(1)
         task.write(0b01)
         time.sleep(1)
+        task.close()
 
