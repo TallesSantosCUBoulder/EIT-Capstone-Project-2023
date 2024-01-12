@@ -1,10 +1,10 @@
 import nidaqmx as daq
-import nidaqmx.constants as daqConst
+from nidaqmx.constants import TerminalConfiguration
 import matplotlib.pyplot as plt
 import numpy as np
 
 with daq.Task() as task:
-    task.ai_channels.add_ai_voltage_chan("Dev2/ai0", terminal_config=daqConst.TerminalConfiguration.RSE)
+    task.ai_channels.add_ai_voltage_chan("Dev2/ai0", terminal_config=RSE)
     data = task.read(number_of_samples_per_channel=int(10e3))
 
 ax = plt.subplot()
