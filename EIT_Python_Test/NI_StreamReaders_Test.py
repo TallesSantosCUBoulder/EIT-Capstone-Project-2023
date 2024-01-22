@@ -18,7 +18,7 @@ with daq.Task(new_task_name='read') as read:
         samps = reader.read_many_sample(data, number_of_samples_per_channel=numSamples)
         x = np.linspace(0, time, samps)
         ax.plot(x, data, linewidth = 2.0)
-
+        
         return 0
     
     read.register_every_n_samples_acquired_into_buffer_event(numSamples, reading_task_callback)
