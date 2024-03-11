@@ -1,0 +1,6 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "LF412CN")(type "KiCad")(uri "${KICAD_EDA_DIR}/symbols/LF412/LF412CN.kicad_sym")(options "")(descr ""))
+  (lib (name "ADG442BNZ")(type "KiCad")(uri "${KICAD_EDA_DIR}/symbols/ADG442/ADG442BNZ.kicad_sym")(options "")(descr ""))
+  (lib (name "DB-9_Female")(type "KiCad")(uri "${KICAD_EDA_DIR}/symbols/DB-9_Female/DB-9_Female.kicad_sym")(options "")(descr ""))
+)
