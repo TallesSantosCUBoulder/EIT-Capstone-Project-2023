@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "Duel_Ethernet_Port")(type "KiCad")(uri "D:/EIT Machine/EIT-Capstone-Project-2023/EDA-CAD_Models/symbols/Duel_Ethernet_Port/Duel_Ethernet_Port.kicad_sym")(options "")(descr ""))
+  (lib (name "ADG406BNZ")(type "KiCad")(uri "D:/EIT Machine/EIT-Capstone-Project-2023/EDA-CAD_Models/symbols/ADG406BNZ/ADG406BNZ.kicad_sym")(options "")(descr ""))
+)
