@@ -5,17 +5,17 @@
       "Application": "Pcbnew",
       "Version": "7.0.10"
     },
-    "CreationDate": "2024-03-29T22:46:55-06:00"
+    "CreationDate": "2024-03-31T23:05:41-06:00"
   },
   "GeneralSpecs": {
     "ProjectId": {
-      "Name": "Electrode_Select_Breakout",
-      "GUID": "456c6563-7472-46f6-9465-5f53656c6563",
+      "Name": "Electrode_Breakout",
+      "GUID": "456c6563-7472-46f6-9465-5f427265616b",
       "Revision": "rev?"
     },
     "Size": {
-      "X": 36.422,
-      "Y": 46.328
+      "X": 30.35,
+      "Y": 65.85
     },
     "LayerNumber": 2,
     "BoardThickness": 1.6,
@@ -34,8 +34,13 @@
   ],
   "FilesAttributes": [
     {
-      "Path": "Electrode_Select_Breakout-F_Cu.gbr",
+      "Path": "Electrode_Breakout-F_Cu.gbr",
       "FileFunction": "Copper,L1,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Electrode_Breakout-Edge_Cuts.gbr",
+      "FileFunction": "Profile",
       "FilePolarity": "Positive"
     }
   ],
