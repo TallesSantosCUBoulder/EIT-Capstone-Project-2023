@@ -144,7 +144,7 @@ addclock(dDAQ, "ScanClock", "Dev1/RTSI3","Dev2/RTSI3");
 start(dAOut,"repeatoutput"); % starts wave output from the NI-Board
 
 Epiv = computeEpiv(frq+dFrq, N, sampleRate);
-EmptyTank = gatherFrame(MuxDigiOut, SwitchSelect, dDAQ, numChannels, SkipN, N, Epiv);
+[sig, EmptyTank] = gatherFrame(MuxDigiOut, SwitchSelect, dDAQ, numChannels, SkipN, N, Epiv);
 
 figure(1)
 ButtonHandle = uicontrol('Style', 'PushButton', ...
@@ -227,33 +227,29 @@ function Epiv = computeEpiv(frq, N, sampleFrq)
 end
 
 %% Frequency Demodulation
-function realAmp = multiFreqDemod(signal, Epiv,CurrPatern) % signal, frq, sampleLen, sampleFreq or signal, Etot
+function realAmp = multiFreqDemod(signal, Epiv) % signal, frq, sampleLen, sampleFreq or signal, Etot
     phi_tot = Epiv*signal;
     
     phi_tot = reshape(phi_tot, [], 3); % Rearrange to useful order
     realAmp = phi_tot(:, 1);
     
     [~, amplitude, phase_rad, offset, ~, ~, ~] = lms_fixed_freq_mod_JM(signal,19910,110e3,0) ;
-    n = [0:512-1] ;
+    n = [0:20e3-1] ;
     raw_voltages_ref =  amplitude(1)*sin(2*pi*(19910/110e3)*n + phase_rad(1))+offset(1) ;
     
-    phase_rad = phase_rad - phase_rad(CurrPatern+1);
     realAmp = real(amplitude.*exp(1i*phase_rad)).';
     %ampPhase = ampPhase(1:2,length(frq)); % cut out dc as it is not needed
 end
 
 %% Collect Frame
-function voltVec = gatherFrame(MuxDigiOut, SwitchSelect, dDAQ, numChannels, SkipN, N, Epiv)
+function [sig, voltVec] = gatherFrame(MuxDigiOut, SwitchSelect, dDAQ, numChannels, SkipN, N, Epiv)
     voltVec = zeros(numChannels^2, 1);
     for i = 0:1:numChannels-1
         setMux(MuxDigiOut, i, SkipN, numChannels);
         setElectrode(SwitchSelect, i, SkipN, numChannels);
         pause(300/110e3)
         sig = read(dDAQ, N, "OutputFormat", "Matrix");
-        CurrPatern = i ;
-        hold = multiFreqDemod(sig, Epiv,CurrPatern);
-        %plot(hold(1:numChannels,:))
-        %pause;
+        hold = multiFreqDemod(sig, Epiv);
         voltVec(i*numChannels+1:(i+1)*numChannels) = hold(1:numChannels,:);
     end
 end
