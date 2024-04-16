@@ -227,19 +227,15 @@ function Epiv = computeEpiv(frq, N, sampleFrq)
 end
 
 %% Frequency Demodulation
-function realAmp = multiFreqDemod(signal, Epiv,CurrPatern) % signal, frq, sampleLen, sampleFreq or signal, Etot
+function realAmp = multiFreqDemod(signal, Epiv, CurrPatern) % signal, frq, sampleLen, sampleFreq or signal, Etot
     phi_tot = Epiv*signal;
-    
     phi_tot = reshape(phi_tot, [], 3); % Rearrange to useful order
-    realAmp = phi_tot(:, 1);
-    
-    [~, amplitude, phase_rad, offset, ~, ~, ~] = lms_fixed_freq_mod_JM(signal,19910,110e3,0) ;
-    n = [0:512-1] ;
-    raw_voltages_ref =  amplitude(1)*sin(2*pi*(19910/110e3)*n + phase_rad(1))+offset(1) ;
-    
-    phase_rad = phase_rad - phase_rad(CurrPatern+1);
-    realAmp = real(amplitude.*exp(1i*phase_rad)).';
-    %ampPhase = ampPhase(1:2,length(frq)); % cut out dc as it is not needed
+
+    amp = sqrt(phi_tot(:,1).^2+phi_tot(:,2).^2);
+    phase = atan2(phi_tot(:,2), phi_tot(:,1));
+    phase = phase - phase(CurrPatern+1);
+
+    realAmp = real(amp.*exp(1i.*phase));
 end
 
 %% Collect Frame
