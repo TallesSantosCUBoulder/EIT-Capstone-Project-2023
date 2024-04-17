@@ -205,37 +205,34 @@ end
 
 %% Precompute Epvi Vector
 function Epiv = computeEpiv(frq, N, sampleFrq)
-    k = 0:N-1; % vector of n points
-    tk = (k/sampleFrq)'; % xAxis
+    tk = ((0:N-1)/sampleFrq)'; % xAxis
     
-    w = 2*pi*frq;     % frequency converted to anglar frequency (rad/s)
+    w = 2*pi*frq.*tk;     % frequency converted to anglar frequency (rad/s)
     
     % matrix containing the desired frequency component of the system
-    Etot = [sin(w.*tk), cos(w.*tk)];
+    Etot = [sin(w), cos(w)];
     if(size(frq)==1)
-        Etot = [Etot, ones(1, length(tk))'];
+        Etot = [Etot, ones(N, 1)];
     else
         for ii = 2:3:(size(Etot,2)*1.5)
             Etot = [Etot(:,1:ii), ones(1, length(tk))', Etot(:,ii+1:end)];
         end
     end
-    % inverse of E * s^t (pinv)
-    % phi1 = E(1)\signal; % gives alpha, beta and offset
-    % phi2 = E(2)\signal;
-    % phi3 = E(3)\signal;
+
     Epiv = pinv(Etot);
 end
 
 %% Frequency Demodulation
-function realAmp = multiFreqDemod(signal, Epiv, CurrPatern) % signal, frq, sampleLen, sampleFreq or signal, Etot
-    phi_tot = Epiv*signal;
-    phi_tot = reshape(phi_tot, [], 3); % Rearrange to useful order
+function realAmp = multiFreqDemod(signal, Epiv, inject) % signal, frq, sampleLen, sampleFreq or signal, Etot
+    phi_tot = (Epiv*signal)';
+    %phi_tot = reshape(phi_tot, [], 3); % Rearrange to useful order
 
     amp = sqrt(phi_tot(:,1).^2+phi_tot(:,2).^2);
     phase = atan2(phi_tot(:,2), phi_tot(:,1));
-    phase = phase - phase(CurrPatern+1);
+    phase = phase - phase(inject+1);
 
     realAmp = real(amp.*exp(1i.*phase));
+
 end
 
 %% Collect Frame
@@ -246,57 +243,9 @@ function voltVec = gatherFrame(MuxDigiOut, SwitchSelect, dDAQ, numChannels, Skip
         setElectrode(SwitchSelect, i, SkipN, numChannels);
         pause(300/110e3)
         sig = read(dDAQ, N, "OutputFormat", "Matrix");
-        CurrPatern = i ;
-        hold = multiFreqDemod(sig, Epiv,CurrPatern);
+        hold = multiFreqDemod(sig, Epiv, i);
         %plot(hold(1:numChannels,:))
         %pause;
         voltVec(i*numChannels+1:(i+1)*numChannels) = hold(1:numChannels,:);
     end
-end
-
-%% Santos Demod
-function [y, amplitude, phase_rad, offset, alpha, beta, omegat] = lms_fixed_freq_mod_JM(Data_s,f0,samp_freq,k0)
-% phase_rad is the phase of the returned y
-
-Ts = 1/samp_freq; % sampling period. Value in seconds
-N=size(Data_s,1);
-
-discrete_time=[k0:(N+k0-1)]*Ts;
-
-omegat = 2*pi*f0*discrete_time';
-% compute mat_J
-SINES = sin(omegat);
-COSSINES = cos(omegat);
-mat_J = [SINES  COSSINES ones(N,1)];
-
-vec_p = pinv(mat_J)*Data_s;  % p is 3 by 32
-
-
-alpha=vec_p(1,:);  % alpha is 1 by 32
-beta=vec_p(2,:);  % beta is 1 by 32
-C=vec_p(3,:);  % C is 1 by 32
-
-n_elec = length(alpha);
-
-amplitude = sqrt(alpha.^2 + beta.^2);
-%phase_rad = -atan2(beta,alpha); % in radians!!!  Note that Raul's demod program uses -atan2, why minus?! I do believe is plus!(talles)
-phase_rad= atan2(beta,alpha);
-offset = C;
-
-phi_alpha = acos(alpha./amplitude); % these agree - the diffence is pi or 0
-phi_beta = asin(beta./amplitude);
-
-y=zeros(N,n_elec);  % y is the best fit to the raw data, each column is an electrode
-ysin = zeros(N,n_elec);
-ycos = zeros(N,n_elec);
-
-for k=1:N
-   ycos(k,:) = beta.*cos(2*pi*f0*discrete_time(k));
-   ysin(k,:) = alpha.*sin(2*pi*f0*discrete_time(k));
-   y(k,:) = ysin(k,:) + ycos(k,:) + C;  
-end
-
-
-% JM:  alpha is V_r and beta is V_q
-
 end
