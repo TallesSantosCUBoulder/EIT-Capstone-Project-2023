@@ -1,3 +1,4 @@
+function Image_Geneartion()
 %% Control Script
 %% Clear Workspace
 
@@ -5,7 +6,6 @@ close all; clearvars; clc;
 %% Initialize Variables
 
 numChannels = 8;                    % Number of electrodes in the system
-offset= 0;                          % Offset of channels for testing
 SkipN = 0;                          % Number of electrodes to skip
 adcRange = 1;                       % Sets the range of the adc
 currR = [10.03; 10.2];              % Resistance current is being measured over
@@ -248,4 +248,6 @@ function voltVec = gatherFrame(MuxDigiOut, SwitchSelect, dDAQ, numChannels, Skip
         %pause;
         voltVec(i*numChannels+1:(i+1)*numChannels) = hold(1:numChannels,:);
     end
+end
+
 end
