@@ -133,6 +133,7 @@ addclock(dDAQ, "ScanClock", "Dev1/RTSI3","Dev2/RTSI3");
 rawElectrodeData = zeros(numChannels, numChannels, N);
 rawCurrData = zeros(numChannels, 2, N);
 demodElecrodeData = zeros(numChannels^2, 1);
+demodCurrData = zeros(numChannels*2, 1);
 Epiv = computeEpiv(frq+dFrq, N, sampleRate);
 start(dAOut,"repeatoutput"); % starts wave output from the NI-Board
 tic
@@ -148,6 +149,7 @@ for i = 0:1:numChannels-1
     rawElectrodeData(i+1,:,:) = signal(:,1:numChannels)';
     rawCurrData(i+1,:,:) = (signal(:,numChannels+1:end)./(currG.*currR)')';
     demodElecrodeData(i*numChannels+1:(i+1)*numChannels,:) = demod(1:numChannels, :);
+    demodCurrData(i+1:(i+2umChannels,:) = demod((numChannels+1):end, :);
 end
 toc
 
@@ -157,7 +159,7 @@ stop(MuxDigiOut);
 stop(SwitchSelect);
 
 %% Save Data of Test
-save("Saved_Data_Files/Electrode_16/Object_Left_Tank.mat", "rawElectrodeData","rawCurrData","demodElecrodeData","frq","N","sampleRate","SkipN")
+save("Saved_Data_Files/Empty_Tank.mat", "rawElectrodeData","rawCurrData","demodElecrodeData","demodCurrData","frq","N","sampleRate","SkipN")
 
 %% Sine Function
 function sine = createSine(A, frq, phase, sampleRate, type, bufferForPreLoad)
