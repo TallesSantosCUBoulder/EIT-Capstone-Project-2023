@@ -57,7 +57,7 @@ addclock(dAOut, "ScanClock", "Dev1/RTSI1","Dev2/RTSI1");
 
 dAOut.Rate = outputRate; % sets the output sampling rate Hz
 
-outputSignal = [createSine(pkpV/2, frq, phase(1), outputRate, "bipolar", bufferForPreLoad) createSine(pkpV/2, frq, phase(2), outputRate, "bipolar", bufferForPreLoad)]; % calls function to generate wave vector
+outputSignal = load("outputSignal.mat"); % calls function to generate wave vector
 
 % Uncomment to see signal being injected
 % t = (0:(N-1)) / sampleRate;
@@ -175,21 +175,6 @@ end
 stop(dAOut);
 stop(MuxDigiOut);
 stop(SwitchSelect);
-
-%% Sine Function
-function sine = createSine(A, frq, phase, sampleRate, type, bufferForPreLoad)
-    timeStep = 1/sampleRate; % period of the sampling frequency
-    periods = 1/eval(gcd(sym(frq))); % calculates the length of the period for a periodic
-    t = (0:timeStep:periods-timeStep)'; % calculates the time vector from the period
-    y = sum(A*sin(2.*pi.*frq.*t+phase),2); % calculates the signal along the time vector
-    
-    if type == "unipolar"
-        y = y + max(y); % if the signal is unipolar add the max amplitude to make it all positive
-    end
-    
-    numCycles = ceil(bufferForPreLoad/length(y)); % calculate the number of cycles to make a full buffer for preloading
-    sine = repmat(y, numCycles, 1); % extends the data vector to match or execed the buffer length
-end
 
 %% Mux Function
 function muxSet = setMux(device, currentInjection, skipNum, numChannels)

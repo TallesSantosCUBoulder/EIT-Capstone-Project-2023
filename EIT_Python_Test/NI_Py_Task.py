@@ -4,26 +4,33 @@ from nidaqmx.constants import READ_ALL_AVAILABLE, AcquisitionType, TerminalConfi
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
+from time import sleep
 
 numSamples = 1024
 numCollected = 0
-data = np.zeros((numSamples, 2))
+data = np.zeros(numSamples)
 time = 1.0/125e3*numSamples
 fig, ax = plt.subplots()
 
-def collectData(dataOut):
-    readTask = daq.Task('readTask')
-    readTask.ai_channels.add_ai_voltage_chan('Dev2/ai0', terminal_config=TerminalConfiguration.RSE)
-    readTask.ai_channels.add_ai_voltage_chan('Dev1/ai0', terminal_config=TerminalConfiguration.RSE)
-    readTask.timing.cfg_samp_clk_timing(125e3, sample_mode=AcquisitionType.CONTINUOUS, samps_per_chan=numSamples)
-    readTask.in_stream.input_buf_size = 1024
-    reader = streamRead.AnalogSingleChannelReader(readTask.in_stream)
-    samps = reader.read_many_sample(dataOut, number_of_samples_per_channel=numSamples)
-    readTask.close()
-    return dataOut, samps
+readTask = daq.Task('readTask')
+readTask.ai_channels.add_ai_voltage_chan('Dev2/ai0', terminal_config=TerminalConfiguration.RSE)
+#readTask.ai_channels.add_ai_voltage_chan('Dev1/ai0', terminal_config=TerminalConfiguration.RSE)
+readTask.timing.cfg_samp_clk_timing(125e3, sample_mode=AcquisitionType.CONTINUOUS)
+#readTask.in_stream.input_buf_size = 1024
+reader = readTask.in_stream
+readTask.start()
+
+
+
+def collectData(dataOut, reader, numSamples):
+    
+    dataOut = reader.read(number_of_samples_per_channel=numSamples)
+    
+    return dataOut
+
 
 def animate(i, data, numCollected, time):
-    data, numCollected = collectData(dataOut=data)
+    data = collectData(dataOut=data, reader=reader, numSamples=numSamples)
     x = np.linspace(0, time, numCollected)
 
     ax.clear()
@@ -32,6 +39,10 @@ def animate(i, data, numCollected, time):
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Voltage (V)')
 
+    sleep(0.1)
+    
+
 ani = animation.FuncAnimation(fig, animate, fargs=(data, numCollected, time), interval=1, cache_frame_data=False)
 
 plt.show()
+readTask.close()
