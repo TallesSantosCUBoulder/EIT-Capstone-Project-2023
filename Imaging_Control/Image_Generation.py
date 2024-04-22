@@ -9,8 +9,7 @@ def set_mux(device, current_injection, skip_num, num_channels):
     device.write(mux_set)
 
 def set_electrode(device, current_injection, skip_num, num_channels):
-    electrode_set = [int(x) for x in f'{current_injection:03b}']
-    electrode_set.extend([int(x) for x in f'{(current_injection + skip_num + 1) % num_channels:03b}'])
+    electrode_set = (1<<(current_injection % num_channels)) | (1<<((current_injection+skip_num+1)% num_channels))
     device.write(electrode_set)
 
 def compute_epiv(frq, N, sample_frq):
@@ -59,6 +58,9 @@ MatrixA_int = reconstruction['MatrixA_int']
 mask = reconstruction['mask']
 n_pixels = reconstruction['n_pixels']
 
+# Clear the loaded data (optional in Python)
+del reconstruction
+
 # Add Digital Mux Select
 MuxDigiOut = nidaqmx.Task()
 MuxDigiOut.do_channels.add_do_chan("Dev1/port1/line0:4")
@@ -86,16 +88,7 @@ preload(dAOut, output_signal)
 
 # Add ADC Inputs
 dDAQ = nidaqmx.Task()
-dDAQ.ai_channels.add_ai_voltage_chan("Dev1/ai0", min_val=-adc_range, max_val=adc_range)
-dDAQ.ai_channels.add_ai_voltage_chan("Dev1/ai1", min_val=-adc_range, max_val=adc_range)
-dDAQ.ai_channels.add_ai_voltage_chan("Dev1/ai2", min_val=-adc_range, max_val=adc_range)
-dDAQ.ai_channels.add_ai_voltage_chan("Dev1/ai3", min_val=-adc_range, max_val=adc_range)
-dDAQ.ai_channels.add_ai_voltage_chan("Dev1/ai4", min_val=-adc_range, max_val=adc_range)
-dDAQ.ai_channels.add_ai_voltage_chan("Dev1/ai5", min_val=-adc_range, max_val=adc_range)
-dDAQ.ai_channels.add_ai_voltage_chan("Dev1/ai6", min_val=-adc_range, max_val=adc_range)
-dDAQ.ai_channels.add_ai_voltage_chan("Dev1/ai7", min_val=-adc_range, max_val=adc_range)
-dDAQ.ai_channels.add_ai_voltage_chan("Dev2/ai7", min_val=-2, max_val=2)
-dDAQ.ai_channels.add_ai_voltage_chan("Dev2/ai8", min_val=-2, max_val=2)
+dDAQ.ai_channels.add_ai_voltage_chan("Dev1/ai0:7", min_val=-adc_range, max_val=adc_range)
 
 dDAQ.timing.cfg_samp_clk_shared_src(src_terminal="Dev1/RTSI3")
 dDAQ.timing.cfg_samp_clk_timing(rate=sample_rate)

@@ -4,7 +4,6 @@ function Image_Geneartion()
 
 close all; clearvars; clc;
 %% Initialize Variables
-
 numChannels = 8;                    % Number of electrodes in the system
 SkipN = 0;                          % Number of electrodes to skip
 adcRange = 1;                       % Sets the range of the adc
