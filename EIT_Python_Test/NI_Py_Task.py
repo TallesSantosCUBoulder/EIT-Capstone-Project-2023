@@ -1,12 +1,14 @@
 import nidaqmx as daq
 import nidaqmx.stream_readers as streamRead
-from nidaqmx.constants import READ_ALL_AVAILABLE, AcquisitionType, TerminalConfiguration, TaskMode
+from nidaqmx.constants import AcquisitionType, Edge, Signal, TerminalConfiguration, TaskMode
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
-from time import sleep
+import time
 
 ## Initialize Variables
+sampleRate = 110e3
+N = 128
 data = np.zeros([2,N])
 dT = 1.0/sampleRate*N
 x = np.linspace(0, dT, N)
@@ -15,18 +17,19 @@ fig, ax = plt.subplots()
 readTaskA = daq.Task('readTaskA') # Create analog read task
 readTaskA.ai_channels.add_ai_voltage_chan('Dev1/ai0', terminal_config=TerminalConfiguration.RSE)
 readTaskA.timing.cfg_samp_clk_timing(sampleRate, sample_mode=AcquisitionType.CONTINUOUS)
-readerA.triggers.sync_type.MASTER = True
 readerA = readTaskA.in_stream
+
+#daq.system.System.connect_terms()
 
 readTaskB = daq.Task('readTaskB')
 readTaskB.ai_channels.add_ai_voltage_chan('Dev2/ai0', terminal_config=TerminalConfiguration.RSE)
-readTaskB.timing.cfg_samp_clk_timing(source="Dev1/ai/SampleClock", sample_mode=AcquisitionType.CONTINUOUS)
-readTaskB.triggers.sync_type.SLAVE = True
-readTaskB.triggers.start_trigger.cfg_dig_edge_start_trig('Dev1/ai/StartTrigger')
+readTaskB.timing.cfg_samp_clk_shared_src_terminal='Dev1/RTSI3' 
+readTaskB.timing.cfg_samp_clk_timing(sampleRate, sample_mode=AcquisitionType.CONTINUOUS)
+readTaskB.triggers.start_trigger.cfg_dig_edge_start_trig(readTaskA.triggers.start_trigger.term)
 readerB = readTaskB.in_stream
 
-readTaskA.start()
 readTaskB.start()
+readTaskA.start()
 
 
 
@@ -49,7 +52,11 @@ def collectData(dataOut, readerA, readerB, numSamples):
 
 
 #ani = animation.FuncAnimation(fig, animate, fargs=(data, reader, N, dT), interval=150, cache_frame_data=False)
+
+s = time.time()
 data = collectData(data, readerA, readerB, N)
+e = time.time()-s
+print("{0:.5f}".format(e))
 data = np.rot90(data,1)
 ax.plot(x, data, linewidth=2.0)
 plt.show()
