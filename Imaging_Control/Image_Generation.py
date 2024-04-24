@@ -1,11 +1,13 @@
 import numpy as np
+from  scipy.io import loadmat
 import matplotlib.pyplot as plt
 import nidaqmx
+import nidaqmx.constants as const
 import time
 
 def set_mux(deviceA, deviceB, current_injection, skip_num, num_channels):
-    mux_setA = int(bin(1<<4)[:1:-1])|((current_injection % num_channels)<<1)
-    mux_setB = int(bin(1<<4)[:1:-1])|((current_injection + skip_num + 1)<<1)
+    mux_setA = 1|((current_injection % num_channels)<<1)
+    mux_setB = 1|((current_injection + skip_num + 1)<<1)
     deviceA.write(mux_setA)
     deviceB.write(mux_setB)
 
@@ -20,21 +22,24 @@ def compute_epiv(frq, N, sample_frq):
     return np.linalg.pinv(Etot)
 
 def multi_freq_demod(signal, Epiv, inject):
-    phi_tot = np.dot(Epiv, signal.T)
-    amp = np.sqrt(phi_tot[:, 0] ** 2 + phi_tot[:, 1] ** 2)
-    phase = np.arctan2(phi_tot[:, 1], phi_tot[:, 0])
+    phi_tot = np.matmul(Epiv, signal)
+    amp = np.sqrt(phi_tot[0, :] ** 2 + phi_tot[1, :] ** 2)
+    phase = np.arctan2(phi_tot[1, :], phi_tot[0, :])
     phase -= phase[inject]
     return np.real(amp * np.exp(1j * phase))
 
-def gather_frame(MuxDigiOut, SwitchSelect, dDAQ, num_channels, skip_num, N, Epiv):
+def gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, readerA, readerB, num_channels, skip_num, N, Epiv):
     volt_vec = np.zeros((num_channels ** 2,))
+    readTaskB.start()
+    readTaskA.start()
     for i in range(num_channels):
-        set_mux(MuxDigiOut, i, skip_num, num_channels)
+        set_mux(MuxDigiOutA, MuxDigiOutB, i, skip_num, num_channels)
         set_electrode(SwitchSelect, i, skip_num, num_channels)
         time.sleep(300 / 110e3)
-        sig = dDAQ.read(N)
+        sig = readerA.read(number_of_samples_per_channel=N).reshape((N, num_channels))
         hold = multi_freq_demod(sig, Epiv, i)
         volt_vec[i * num_channels: (i + 1) * num_channels] = hold[:num_channels]
+        print(i)
     return volt_vec
 
 # Initialize Variables
@@ -43,8 +48,9 @@ skip_num = 0
 adc_range = 1
 curr_r = np.array([10.03, 10.2])
 curr_g = np.array([49.72, 53.05])
-N = 512
+N = 256
 sample_rate = 110e3
+data = np.zeros([num_channels,N])
 output_rate = 1e6
 buffer_for_preload = 500e3
 pkpV = 3
@@ -53,7 +59,7 @@ phase = np.array([0, np.pi])
 dFrq = -90.00548
 
 # Load Reconstruction Matrix
-reconstruction = np.load('reconstruction.npy', allow_pickle=True).item()
+reconstruction = loadmat('Imaging_Control/reconstruction.mat')
 
 MatrixA_int = reconstruction['MatrixA_int']
 mask = reconstruction['mask']
@@ -78,46 +84,63 @@ SwitchSelect.do_channels.add_do_chan("Dev1/port2/line0:7")
 SwitchSelect.stop()
 
 # Add Analog Output
-dAOut = nidaqmx.Task()
-AnalogCH1 = dAOut.ao_channels.add_ao_voltage_chan("Dev1/ao0", min_val=-10.0, max_val=10.0)
-AnalogCH2 = dAOut.ao_channels.add_ao_voltage_chan("Dev2/ao0", min_val=-10.0, max_val=10.0)
-dAOut.stop()
+dAOutA = nidaqmx.Task()
+dAOutA.ao_channels.add_ao_voltage_chan("Dev1/ao0", min_val=-5, max_val=5)
+dAOutA.timing.cfg_samp_clk_timing(output_rate, sample_mode=const.AcquisitionType.CONTINUOUS)
+dAOutA.stop()
 
-dAOut.triggers.start_trigger.cfg_dig_edge_start_trig(trigger_source="Dev1/RTSI0")
-dAOut.timing.cfg_samp_clk_shared_src(src_terminal="Dev1/RTSI1")
-dAOut.timing.cfg_samp_clk_timing(rate=output_rate)
+dAOutB = nidaqmx.Task()
+dAOutB.ao_channels.add_ao_voltage_chan("Dev2/ao0", min_val=-5, max_val=5)
+dAOutB.triggers.start_trigger.cfg_dig_edge_start_trig(dAOutA.triggers.start_trigger.term) 
+dAOutB.timing.cfg_samp_clk_timing(output_rate, '/Dev1/ao/SampleClock', sample_mode=const.AcquisitionType.CONTINUOUS)
+dAOutB.stop()
 
-output_signal = np.load("outputSignal.npy")
+output_signal = loadmat('Imaging_Control/outputSignal.mat')
+outputSignal = output_signal['outputSignal']
 
-preload(dAOut, output_signal)
 
 # Add ADC Inputs
-dDAQ = nidaqmx.Task()
-dDAQ.ai_channels.add_ai_voltage_chan("Dev1/ai0:7", min_val=-adc_range, max_val=adc_range)
+readTaskA = nidaqmx.Task('readTaskA') # Create analog read task
+readTaskA.ai_channels.add_ai_voltage_chan('Dev1/ai0:7', terminal_config=const.TerminalConfiguration.RSE, min_val=-1, max_val=1)
+readTaskA.timing.cfg_samp_clk_timing(sample_rate)
+readerA = readTaskA.in_stream
 
-dDAQ.timing.cfg_samp_clk_shared_src(src_terminal="Dev1/RTSI3")
-dDAQ.timing.cfg_samp_clk_timing(rate=sample_rate)
+readTaskB = nidaqmx.Task('readTaskB')
+readTaskB.ai_channels.add_ai_voltage_chan('Dev2/ai0', terminal_config=const.TerminalConfiguration.RSE)
+readTaskB.timing.cfg_samp_clk_timing(sample_rate, '/Dev1/ai/SampleClock')
+readTaskB.triggers.start_trigger.cfg_dig_edge_start_trig(readTaskA.triggers.start_trigger.term)
+readerB = readTaskB.in_stream
 
 # Main Loop
-dAOut.start(task="repeatoutput")
+dAOutB.write(outputSignal[:,1], auto_start=True)
+dAOutA.write(outputSignal[:,0], auto_start=True)
 
 Epiv = compute_epiv(frq + dFrq, N, sample_rate)
-empty_tank = gather_frame(MuxDigiOut, SwitchSelect, dDAQ, num_channels, skip_num, N, Epiv)
+empty_tank = gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, readerA, readerB, num_channels, skip_num, N, Epiv)
+plt.ion()
 
 while True:
-    volt_vec = gather_frame(MuxDigiOut, SwitchSelect, dDAQ, num_channels, skip_num, N, Epiv)
+    readTaskA.start()
+    readTaskB.start()
+    volt_vec = gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, readerA, readerB, num_channels, skip_num, N, Epiv)
+    readTaskA.stop()
+    readTaskB.stop()
     voltage_vec_diff = (volt_vec - empty_tank)
+    step1 = np.matmul(MatrixA_int, voltage_vec_diff)
+    step2 = (np.real((step1) * mask.T))
+    imagem =step2.reshape((64,64))
     
-    imagem = np.real(np.dot(MatrixA_int, voltage_vec_diff).reshape(n_pixels, n_pixels) * mask)
-    plt.imshow(imagem.T, cmap='jet', origin='lower', aspect='equal')
-    plt.colorbar()
-    plt.show()
 
-    if not plt.fignum_exists(2):
+    plt.imshow(imagem, cmap='jet', origin='lower', aspect='equal')
+    #plt.colorbar()
+    plt.draw()
+    if not plt.fignum_exists(1):
         print('Loop stopped by user')
         break
 
+
 # Stop Outputs
-dAOut.stop()
+readTaskB.stop()
+readTaskA.stop()
 MuxDigiOut.stop()
 SwitchSelect.stop()

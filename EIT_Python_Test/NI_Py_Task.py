@@ -12,7 +12,6 @@ N = 128
 data = np.zeros([2,N])
 dT = 1.0/sampleRate*N
 x = np.linspace(0, dT, N)
-fig, ax = plt.subplots()
 
 readTaskA = daq.Task('readTaskA') # Create analog read task
 readTaskA.ai_channels.add_ai_voltage_chan('Dev1/ai0', terminal_config=TerminalConfiguration.RSE)
@@ -53,13 +52,20 @@ def collectData(dataOut, readerA, readerB, numSamples):
 
 #ani = animation.FuncAnimation(fig, animate, fargs=(data, reader, N, dT), interval=150, cache_frame_data=False)
 
-s = time.time()
-data = collectData(data, readerA, readerB, N)
-e = time.time()-s
-print("{0:.5f}".format(e))
-data = np.rot90(data,1)
-ax.plot(x, data, linewidth=2.0)
-plt.show()
+
+
+plt.ion()
+
+while True:
+    data = collectData(data, readerA, readerB, N)
+    dataShow = np.rot90(data,1)
+    plt.plot(x, dataShow, linewidth=2.0)
+
+    plt.draw()
+    if not plt.fignum_exists(1):
+        print('Loop stopped by user')
+        break
+    time.sleep(0.1)
 
 readTaskA.stop()
 readTaskB.stop()
