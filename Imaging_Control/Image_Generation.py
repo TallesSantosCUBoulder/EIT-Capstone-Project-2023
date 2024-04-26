@@ -144,9 +144,11 @@ while True:
     step2 = np.real(step1) * mask.T
     imagem = np.rot90(step2.reshape((64,64)),1)
     
-
-    ax.imshow(imagem,cmap='jet', origin='lower', aspect='equal')
-    fig.canvas.draw()
+    if(not(ax.has_data))
+        ax.imshow(imagem, cmap='jet', origin='lower', aspect='equal')
+    else
+        ax.set_data(imagem)
+    ax.redraw_in_frame
     if not plt.fignum_exists(1):
         print('Loop stopped by user')
         break
