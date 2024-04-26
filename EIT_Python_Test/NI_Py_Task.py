@@ -13,28 +13,25 @@ data = np.zeros([2,N])
 dT = 1.0/sampleRate*N
 x = np.linspace(0, dT, N)
 
-readTaskA = daq.Task('readTaskA') # Create analog read task
-readTaskA.ai_channels.add_ai_voltage_chan('Dev1/ai0', terminal_config=TerminalConfiguration.RSE)
-readTaskA.timing.cfg_samp_clk_timing(sampleRate, sample_mode=AcquisitionType.CONTINUOUS)
-readerA = readTaskA.in_stream
+def collectData(dataOut, numSamples, sampleRate):
 
-#daq.system.System.connect_terms()
+    readTaskA = daq.Task('readTaskA') # Create analog read task
+    readTaskA.ai_channels.add_ai_voltage_chan('Dev1/ai0', terminal_config=TerminalConfiguration.RSE)
+    readTaskA.timing.cfg_samp_clk_timing(sampleRate, samps_per_chan=N)
+    readerA = readTaskA.in_stream
+    readerA.auto_start = True
 
-readTaskB = daq.Task('readTaskB')
-readTaskB.ai_channels.add_ai_voltage_chan('Dev2/ai0', terminal_config=TerminalConfiguration.RSE)
-readTaskB.timing.cfg_samp_clk_shared_src_terminal='Dev1/RTSI3' 
-readTaskB.timing.cfg_samp_clk_timing(sampleRate, sample_mode=AcquisitionType.CONTINUOUS)
-readTaskB.triggers.start_trigger.cfg_dig_edge_start_trig(readTaskA.triggers.start_trigger.term)
-readerB = readTaskB.in_stream
+    readTaskB = daq.Task('readTaskB')
+    readTaskB.ai_channels.add_ai_voltage_chan('Dev2/ai0', terminal_config=TerminalConfiguration.RSE)
+    readTaskB.timing.cfg_samp_clk_timing(sampleRate, '/Dev1/ai/SampleClock', sample_mode=AcquisitionType.FINITE, samps_per_chan=N)
+    readTaskB.triggers.start_trigger.cfg_dig_edge_start_trig(readTaskA.triggers.start_trigger.term)
+    readerB = readTaskB.in_stream
+    readTaskB.start()
 
-readTaskB.start()
-readTaskA.start()
-
-
-
-def collectData(dataOut, readerA, readerB, numSamples):
+    readTaskA.wait_until_done(daq.constants.WAIT_INFINITELY)
     dataOut[0,:] = readerA.read(number_of_samples_per_channel=numSamples)
     dataOut[1,:] = readerB.read(number_of_samples_per_channel=numSamples)
+
     return dataOut
 
 
@@ -55,9 +52,11 @@ def collectData(dataOut, readerA, readerB, numSamples):
 
 
 plt.ion()
-
+i = 0
 while True:
-    data = collectData(data, readerA, readerB, N)
+    print(i)
+    i += 1
+    data = collectData(data, readTaskA, readTaskB, readerA, readerB, N, sampleRate)
     dataShow = np.rot90(data,1)
     plt.plot(x, dataShow, linewidth=2.0)
 

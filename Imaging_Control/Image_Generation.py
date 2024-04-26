@@ -28,18 +28,47 @@ def multi_freq_demod(signal, Epiv, inject):
     phase -= phase[inject]
     return np.real(amp * np.exp(1j * phase))
 
-def gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, readerA, readerB, num_channels, skip_num, N, Epiv):
+def collectData(dataOut, numSamples, sampleRate):
+    # Add ADC Inputs
+    readTaskA = nidaqmx.Task('readTaskA') # Create analog read task
+    readTaskA.ai_channels.add_ai_voltage_chan('Dev1/ai0:7', terminal_config=const.TerminalConfiguration.RSE, min_val=-1, max_val=1)
+    readTaskA.timing.cfg_samp_clk_timing(sample_rate, sample_mode=const.AcquisitionType.FINITE, samps_per_chan=N)
+    readerA = readTaskA.in_stream
+    readerA.timeout = -1
+    
+    readTaskB = nidaqmx.Task('readTaskB')
+    readTaskB.ai_channels.add_ai_voltage_chan('Dev2/ai0', terminal_config=const.TerminalConfiguration.RSE)
+    readTaskB.timing.cfg_samp_clk_timing(sample_rate, '/Dev1/ai/SampleClock', sample_mode=const.AcquisitionType.FINITE, samps_per_chan=N)
+    readTaskB.triggers.start_trigger.cfg_dig_edge_start_trig(readTaskA.triggers.start_trigger.term)
+    readerB = readTaskB.in_stream
+    readerB.timeout = -1
+    s = time.time()
+    dataOut = readerA.read(number_of_samples_per_channel=const.READ_ALL_AVAILABLE)
+    #dataOut[1,:] = readerB.read(number_of_samples_per_channel=numSamples)
+    e = time.time()
+    print(str(e-s) + " Read")
+    readTaskB.stop()
+    readTaskA.stop()
+    readTaskA.close()
+    readTaskB.close()
+    del readerA, readerB, readTaskA, readTaskB
+    return dataOut
+    
+def gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, data, num_channels, skip_num, N, Epiv):
     volt_vec = np.zeros((num_channels ** 2,))
-    readTaskB.start()
-    readTaskA.start()
     for i in range(num_channels):
+        s = time.time()
         set_mux(MuxDigiOutA, MuxDigiOutB, i, skip_num, num_channels)
+        e = time.time()
+        print(str(e-s) + " MUX")
+        s = time.time()
         set_electrode(SwitchSelect, i, skip_num, num_channels)
-        time.sleep(300 / 110e3)
-        sig = readerA.read(number_of_samples_per_channel=N).reshape((N, num_channels))
-        hold = multi_freq_demod(sig, Epiv, i)
+        e = time.time()
+        print(str(e-s) + " SWITCH")
+        time.sleep(600 / 110e3)
+        data = collectData(data, N, num_channels).reshape((N,num_channels))
+        hold = multi_freq_demod(data, Epiv, i)
         volt_vec[i * num_channels: (i + 1) * num_channels] = hold[:num_channels]
-        print(i)
     return volt_vec
 
 # Initialize Variables
@@ -98,49 +127,41 @@ dAOutB.stop()
 output_signal = loadmat('Imaging_Control/outputSignal.mat')
 outputSignal = output_signal['outputSignal']
 
-
-# Add ADC Inputs
-readTaskA = nidaqmx.Task('readTaskA') # Create analog read task
-readTaskA.ai_channels.add_ai_voltage_chan('Dev1/ai0:7', terminal_config=const.TerminalConfiguration.RSE, min_val=-1, max_val=1)
-readTaskA.timing.cfg_samp_clk_timing(sample_rate)
-readerA = readTaskA.in_stream
-
-readTaskB = nidaqmx.Task('readTaskB')
-readTaskB.ai_channels.add_ai_voltage_chan('Dev2/ai0', terminal_config=const.TerminalConfiguration.RSE)
-readTaskB.timing.cfg_samp_clk_timing(sample_rate, '/Dev1/ai/SampleClock')
-readTaskB.triggers.start_trigger.cfg_dig_edge_start_trig(readTaskA.triggers.start_trigger.term)
-readerB = readTaskB.in_stream
-
 # Main Loop
 dAOutB.write(outputSignal[:,1], auto_start=True)
 dAOutA.write(outputSignal[:,0], auto_start=True)
 
 Epiv = compute_epiv(frq + dFrq, N, sample_rate)
-empty_tank = gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, readerA, readerB, num_channels, skip_num, N, Epiv)
+empty_tank = gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, data, num_channels, skip_num, N, Epiv)
 plt.ion()
+fig = plt.figure()
+ax = fig.add_subplot()
 
 while True:
-    readTaskA.start()
-    readTaskB.start()
-    volt_vec = gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, readerA, readerB, num_channels, skip_num, N, Epiv)
-    readTaskA.stop()
-    readTaskB.stop()
+    volt_vec = gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, data, num_channels, skip_num, N, Epiv)
     voltage_vec_diff = (volt_vec - empty_tank)
     step1 = np.matmul(MatrixA_int, voltage_vec_diff)
-    step2 = (np.real((step1) * mask.T))
-    imagem =step2.reshape((64,64))
+    step2 = np.real(step1) * mask.T
+    imagem = np.rot90(step2.reshape((64,64)),1)
     
 
-    plt.imshow(imagem, cmap='jet', origin='lower', aspect='equal')
-    #plt.colorbar()
-    plt.draw()
+    ax.imshow(imagem,cmap='jet', origin='lower', aspect='equal')
+    fig.canvas.draw()
     if not plt.fignum_exists(1):
         print('Loop stopped by user')
         break
-
+    
+    fig.canvas.flush_events()
 
 # Stop Outputs
-readTaskB.stop()
-readTaskA.stop()
-MuxDigiOut.stop()
+MuxDigiOutA.stop()
+MuxDigiOutB.stop()
 SwitchSelect.stop()
+dAOutA.stop()
+dAOutB.stop()
+
+MuxDigiOutA.close()
+MuxDigiOutB.close()
+SwitchSelect.close()
+dAOutA.close()
+dAOutB.close()
