@@ -136,7 +136,7 @@ empty_tank = gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, data, num_chan
 plt.ion()
 fig = plt.figure()
 ax = fig.add_subplot()
-
+line = None
 while True:
     volt_vec = gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, data, num_channels, skip_num, N, Epiv)
     voltage_vec_diff = (volt_vec - empty_tank)
@@ -144,10 +144,12 @@ while True:
     step2 = np.real(step1) * mask.T
     imagem = np.rot90(step2.reshape((64,64)),1)
     
-    if(not(ax.has_data))
-        ax.imshow(imagem, cmap='jet', origin='lower', aspect='equal')
+    if(line == None)
+        line = ax.imshow(imagem, cmap='jet', origin='lower', aspect='equal')
     else
-        ax.set_data(imagem)
+        line.set_data(imagem)
+        line.set_clim([-5000, 5000])
+        
     ax.redraw_in_frame
     if not plt.fignum_exists(1):
         print('Loop stopped by user')
