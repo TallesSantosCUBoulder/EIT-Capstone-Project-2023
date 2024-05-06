@@ -144,9 +144,9 @@ while True:
     step2 = np.real(step1) * mask.T
     imagem = np.rot90(step2.reshape((64,64)),1)
     
-    if(line == None)
+    if(line == None):
         line = ax.imshow(imagem, cmap='jet', origin='lower', aspect='equal')
-    else
+    else:
         line.set_data(imagem)
         line.set_clim([-5000, 5000])
         
