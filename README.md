@@ -4,6 +4,9 @@ This repository was created for the Electrical Impedance Tomography (EIT) Senior
 
 https://github.com/TallesSantosCUBoulder/EIT-Capstone-Project-2023/assets/132620866/607e2009-ba12-4f8c-8343-4e7990a771f2
 
+<video  src = Video/Demo.mp4
+<video/>
+
 ## Introduction
 The EIT project was sponsored by Dr. Talles Santos for Colorado Mesa - Colorado Boulder Partnership engineering senior design class. 
 
