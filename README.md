@@ -2,7 +2,7 @@
 
 This repository was created for the Electrical Impedance Tomography (EIT) Senior Design Project. The goals of this project were to make open-source hardware and software to reduce the cost of EIT in medical imaging.
 
-<video src='[your URL here](https://github.com/TallesSantosCUBoulder/EIT-Capstone-Project-2023/blob/main/Videos/IMG_0545.mov)' width=360/>
+<video src='https://github.com/TallesSantosCUBoulder/EIT-Capstone-Project-2023/blob/main/Videos/IMG_0545.mov' width=360/>
 
 
 ## Introduction
