@@ -1,0 +1,5 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "TE_2xRJ45")(type "KiCad")(uri "D:/EIT Machine/EIT-Capstone-Project-2023/EDA-CAD_Models/footprints/TE_2xRJ45")(options "")(descr ""))
+  (lib (name "DB-9_Female")(type "KiCad")(uri "D:/EIT Machine/EIT-Capstone-Project-2023/EDA-CAD_Models/footprints/DB-9_Female")(options "")(descr ""))
+)

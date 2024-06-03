@@ -1,6 +1,0 @@
-(fp_lib_table
-  (version 7)
-  (lib (name "LF412")(type "KiCad")(uri "${KICAD_EDA_DIR}/footprints/LF412")(options "")(descr ""))
-  (lib (name "ADG442")(type "KiCad")(uri "${KICAD_EDA_DIR}/footprints/ADG442")(options "")(descr ""))
-  (lib (name "DB-9_Female")(type "KiCad")(uri "${KICAD_EDA_DIR}/footprints/DB-9_Female")(options "")(descr ""))
-)
