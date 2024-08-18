@@ -1,27 +1,65 @@
-import numpy as np
-from  scipy.io import loadmat
-import matplotlib.pyplot as plt
-import nidaqmx
-import nidaqmx.constants as const
-import time
+import numpy as np                      # Used for vector and matrix math
+from  scipy.io import loadmat           # Used to load the reconstruction.mat
+import matplotlib.pyplot as plt         # Used for plotting image  
+import nidaqmx                          # Used to connect python to the NI boards
+import nidaqmx.constants as const       # Constants used to configure NI boards
+import time                             # Used for sleeping for the RC curve 
 
 def set_mux(deviceA, deviceB, current_injection, skip_num, num_channels):
+    """
+    Controls the mux channels being used for current injection. Device A controls
+    the zero phase current and Device B controls the 180 phase current. 
+    Args:
+        deviceA (nidaqmx.Task): NIDAQMX Task to control Mux A
+        deviceB (nidaqmx.Task): NIDAQMX Task to control Mux B
+        current_injection (int): Electrode number for zero phase current
+        skip_num (int): Number of electrodes to skip for 180 phase current
+        num_channels (int): Total number of electrodes being used
+    """
     mux_setA = 1|((current_injection % num_channels)<<1)
     mux_setB = 1|((current_injection + skip_num + 1)<<1)
     deviceA.write(mux_setA)
     deviceB.write(mux_setB)
 
 def set_electrode(device, current_injection, skip_num, num_channels):
+    """
+    Controls the switches in the electrodes to enable/disable current injection
+    Args:
+        device (nidaqmx.Task): NIDAQMX Task to control switches
+        current_injection (int): Electrode number for zero phase current
+        skip_num (int): Number of electrodes to skip for 180 phase current
+        num_channels (int): Total number of electrodes being used
+    """    
     electrode_set = (1<<(current_injection % num_channels)) | (1<<((current_injection+skip_num+1)% num_channels))
     device.write(electrode_set)
 
 def compute_epiv(frq, N, sample_frq):
+    """
+    Used to pre-compute the Epiv matrix for signal demodulation
+    Args:
+        frq (np.arry): An array containing the frequency of the impulsed signal
+        N (int): Number of samples used
+        sample_frq (int): Sample Frequency
+
+    Returns:
+        np.ndarray: Pre-computed Epiv Matrix for demodulation
+    """    
     tk = np.arange(N) / sample_frq
     w = 2 * np.pi * frq * tk[:, np.newaxis]
     Etot = np.hstack((np.sin(w), np.cos(w), np.ones((N, len(frq)))))
     return np.linalg.pinv(Etot)
 
 def multi_freq_demod(signal, Epiv, inject):
+    """
+    Demodulate signal for image reconstruction
+    Args:
+        signal (np.ndarray): num_channels x N Matrix of Electrode Samples
+        Epiv (np.ndarray): Pre-computed Epiv Matrix Used for Demodulation
+        inject (int): Electrode number the zero phase signal is being impulsed on
+
+    Returns:
+        np.array: Real component of impulsed signal for each electrode
+    """    
     phi_tot = np.matmul(Epiv, signal)
     amp = np.sqrt(phi_tot[0, :] ** 2 + phi_tot[1, :] ** 2)
     phase = np.arctan2(phi_tot[1, :], phi_tot[0, :])
@@ -29,6 +67,16 @@ def multi_freq_demod(signal, Epiv, inject):
     return np.real(amp * np.exp(1j * phase))
 
 def collectData(dataOut, numSamples, sampleRate):
+    """
+    Collect a vector of voltages to be demodulated
+    Args:
+        dataOut (np.ndarray): num_channels x N Matrix of Electrode Samples
+        numSamples (int): Number of Samples to Collect
+        sampleRate (int): Sample Frequency
+
+    Returns:
+        np.array: num_channels x N Matrix of Electrode Samples
+    """    
     # Add ADC Inputs
     readTaskA = nidaqmx.Task('readTaskA') # Create analog read task
     readTaskA.ai_channels.add_ai_voltage_chan('Dev1/ai0:7', terminal_config=const.TerminalConfiguration.RSE, min_val=-1, max_val=1)
@@ -55,6 +103,21 @@ def collectData(dataOut, numSamples, sampleRate):
     return dataOut
     
 def gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, data, num_channels, skip_num, N, Epiv):
+    """
+    demodulated (num_channels^2)x1 voltage vector for image generation
+    Args:
+        MuxDigiOutA (nidaqmx.Task): NIDAQMX Task to control Mux A
+        MuxDigiOutB (nidaqmx.Task): NIDAQMX Task to control Mux B
+        SwitchSelect (nidaqmx.Task): NIDAQMX Task to control switches
+        data (np.ndarray): num_channels x N Matrix of Electrode Samples
+        num_channels (int): Total number of electrodes being used
+        skip_num (int): Number of electrodes to skip for 180 phase current
+        N (int): Number of samples used
+        Epiv (np.ndarray): Pre-computed Epiv matrix for demodulation
+
+    Returns:
+        np.ndarray: demodulated (num_channels^2)x1 voltage vector for image generation
+    """    
     volt_vec = np.zeros((num_channels ** 2,))
     for i in range(num_channels):
         s = time.time()
@@ -127,6 +190,9 @@ dAOutB.stop()
 output_signal = loadmat('Imaging_Control/outputSignal.mat')
 outputSignal = output_signal['outputSignal']
 
+# Clear the loaded data (optional in Python)
+del output_signal
+
 # Main Loop
 dAOutB.write(outputSignal[:,1], auto_start=True)
 dAOutA.write(outputSignal[:,0], auto_start=True)
@@ -137,6 +203,7 @@ plt.ion()
 fig = plt.figure()
 ax = fig.add_subplot()
 line = None
+
 while True:
     volt_vec = gather_frame(MuxDigiOutA, MuxDigiOutB, SwitchSelect, data, num_channels, skip_num, N, Epiv)
     voltage_vec_diff = (volt_vec - empty_tank)
